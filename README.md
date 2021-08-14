@@ -1,3 +1,5 @@
+**This fork adds a "Faster advection" setting that increases air propagation speed and decreases its influence over particles.**
+
 The Powder Toy - July 2021
 ==========================
 
