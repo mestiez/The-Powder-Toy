@@ -20,6 +20,7 @@ public:
 	void SetAmbientHeatSimulation(bool state);
 	void SetNewtonianGravity(bool state);
 	void SetWaterEqualisation(bool state);
+	void SetFasterAir(bool state);
 	void SetGravityMode(int gravityMode);
 	void SetAirMode(int airMode);
 	void SetAmbientAirTemperature(float ambientAirTemp);

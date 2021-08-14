@@ -20,6 +20,7 @@
 GameSave::GameSave(GameSave & save):
     majorVersion(save.majorVersion),
 	waterEEnabled(save.waterEEnabled),
+	fastAdvectionEnabled(save.fastAdvectionEnabled),
 	legacyEnable(save.legacyEnable),
 	gravityEnable(save.gravityEnable),
 	aheatEnable(save.aheatEnable),
@@ -168,6 +169,7 @@ void GameSave::InitVars()
 	majorVersion = 0;
 	minorVersion = 0;
 	waterEEnabled = false;
+	fastAdvectionEnabled = true;
 	legacyEnable = false;
 	gravityEnable = false;
 	aheatEnable = false;
@@ -682,6 +684,7 @@ void GameSave::readOPS(char * data, int dataLength)
 		CheckBsonFieldBool(iter, "gravityEnable", &gravityEnable);
 		CheckBsonFieldBool(iter, "aheat_enable", &aheatEnable);
 		CheckBsonFieldBool(iter, "waterEEnabled", &waterEEnabled);
+		CheckBsonFieldBool(iter, "fastAdvectionEnabled", &fastAdvectionEnabled);
 		CheckBsonFieldBool(iter, "paused", &paused);
 		CheckBsonFieldInt(iter, "gravityMode", &gravityMode);
 		CheckBsonFieldInt(iter, "airMode", &airMode);
@@ -2553,6 +2556,7 @@ char * GameSave::serialiseOPS(unsigned int & dataLength)
 
 
 	bson_append_bool(&b, "waterEEnabled", waterEEnabled);
+	bson_append_bool(&b, "fastAdvectionEnabled", fastAdvectionEnabled);
 	bson_append_bool(&b, "legacyEnable", legacyEnable);
 	bson_append_bool(&b, "gravityEnable", gravityEnable);
 	bson_append_bool(&b, "aheat_enable", aheatEnable);

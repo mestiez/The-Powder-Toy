@@ -104,6 +104,12 @@ OptionsView::OptionsView():
 	tempLabel->Appearance.VerticalAlign = ui::Appearance::AlignMiddle;
 	scrollPanel->AddChild(tempLabel);
 
+	currentY+=16;
+	fasterAir = new ui::Checkbox(ui::Point(8, currentY), ui::Point(1, 16), "Faster air advection speed", "");
+	autowidth(fasterAir);
+	fasterAir->SetActionCallback({ [this] { c->SetFasterAir(fasterAir->GetChecked()); } });
+	scrollPanel->AddChild(fasterAir);
+
 	currentY+=19;
 	airMode = new ui::DropDown(ui::Point(Size.X-95, currentY), ui::Point(80, 16));
 	scrollPanel->AddChild(airMode);
@@ -420,6 +426,7 @@ void OptionsView::NotifySettingsChanged(OptionsModel * sender)
 	ambientHeatSimulation->SetChecked(sender->GetAmbientHeatSimulation());
 	newtonianGravity->SetChecked(sender->GetNewtonianGravity());
 	waterEqualisation->SetChecked(sender->GetWaterEqualisation());
+	fasterAir->SetChecked(sender->GetFasterAir());
 	airMode->SetOption(sender->GetAirMode());
 	// Initialize air temp and preview only when the options menu is opened, and not when user is actively editing the textbox
 	if (!initializedAirTempPreview)

@@ -90,6 +90,7 @@ public:
 
 	//Simulation Options
 	bool waterEEnabled;
+	bool fastAdvectionEnabled;
 	bool legacyEnable;
 	bool gravityEnable;
 	bool aheatEnable;

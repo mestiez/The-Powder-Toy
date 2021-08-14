@@ -37,6 +37,11 @@ void OptionsController::SetWaterEqualisation(bool state)
 	model->SetWaterEqualisation(state);
 }
 
+void OptionsController::SetFasterAir(bool state)
+{
+	model->SetFasterAir(state);
+}
+
 void OptionsController::SetGravityMode(int gravityMode)
 {
 	model->SetGravityMode(gravityMode);

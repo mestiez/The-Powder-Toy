@@ -116,6 +116,7 @@ GameModel::GameModel():
 	if (ngrav_enable)
 		sim->grav->start_grav_async();
 	sim->aheat_enable =  Client::Ref().GetPrefInteger("Simulation.AmbientHeat", 0);
+	sim->faster_air =  Client::Ref().GetPrefInteger("Simulation.FastAdvection", 0);
 	sim->pretty_powder =  Client::Ref().GetPrefInteger("Simulation.PrettyPowder", 0);
 
 	Favorite::Ref().LoadFavoritesFromPrefs();
@@ -177,6 +178,7 @@ GameModel::~GameModel()
 	Client::Ref().SetPref("Simulation.NewtonianGravity", sim->grav->IsEnabled());
 	Client::Ref().SetPref("Simulation.AmbientHeat", sim->aheat_enable);
 	Client::Ref().SetPref("Simulation.PrettyPowder", sim->pretty_powder);
+	Client::Ref().SetPref("Simulation.FastAdvection", sim->faster_air);
 
 	Client::Ref().SetPref("Decoration.Red", (int)colour.Red);
 	Client::Ref().SetPref("Decoration.Green", (int)colour.Green);
