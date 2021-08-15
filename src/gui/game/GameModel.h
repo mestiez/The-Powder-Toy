@@ -191,6 +191,8 @@ public:
 	bool GetDecoration();
 	void SetAHeatEnable(bool aHeat);
 	bool GetAHeatEnable();
+	void SetFastAdvection(bool aHeat);
+	bool GetFastAdvection();
 	void ResetAHeat();
 	void SetNewtonianGravity(bool newtonainGravity);
 	bool GetNewtonianGrvity();

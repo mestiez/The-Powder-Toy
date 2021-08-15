@@ -231,6 +231,7 @@ void GameModel::BuildQuickOptionMenu(GameController * controller)
 	quickOptions.push_back(new DecorationsOption(this));
 	quickOptions.push_back(new NGravityOption(this));
 	quickOptions.push_back(new AHeatOption(this));
+	quickOptions.push_back(new FastAdvectionOption(this));
 	quickOptions.push_back(new ConsoleShowOption(this, controller));
 
 	notifyQuickOptionsChanged();
@@ -1282,6 +1283,21 @@ void GameModel::SetAHeatEnable(bool aHeat)
 bool GameModel::GetAHeatEnable()
 {
 	return sim->aheat_enable;
+}
+
+void GameModel::SetFastAdvection(bool fastAdv)
+{
+	sim->faster_air = fastAdv;
+	UpdateQuickOptions();
+	if (fastAdv)
+		SetInfoTip("Fast Advection: On");
+	else
+		SetInfoTip("Fast Advection: Off");
+}
+
+bool GameModel::GetFastAdvection()
+{
+	return sim->faster_air;
 }
 
 void GameModel::ResetAHeat()

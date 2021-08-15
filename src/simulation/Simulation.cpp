@@ -3605,7 +3605,7 @@ void Simulation::UpdateParticles(int start, int end)
 				parts[i].vy *= elements[t].Loss;
 			}
 			//particle gets velocity from the vx and vy maps
-			float ratio = faster_air ? 0.5f : 0;
+			float ratio = faster_air ? 0.5f : 1;
 			parts[i].vx += elements[t].Advection * vx[y / CELL][x / CELL] + pGravX * ratio;
 			parts[i].vy += elements[t].Advection * vy[y / CELL][x / CELL] + pGravY * ratio;
 
@@ -5141,7 +5141,7 @@ void Simulation::BeforeSim()
 {
 	if (!sys_pause || framerender)
 	{
-		size_t air_iteration_count = faster_air ? 4 : 1;
+		size_t air_iteration_count = faster_air ? 5 : 1;
 		for (size_t iteration = 0; iteration < air_iteration_count; iteration++)
 		{
 			air->update_air();

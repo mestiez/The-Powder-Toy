@@ -42,6 +42,14 @@ public:
 	void perform() override;
 };
 
+class FastAdvectionOption: public QuickOption
+{
+public:
+	FastAdvectionOption(GameModel * m);
+	bool GetToggle() override;
+	void perform() override;
+};
+
 class ConsoleShowOption: public QuickOption
 {
 	GameController * c;

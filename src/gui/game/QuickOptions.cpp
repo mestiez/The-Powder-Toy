@@ -84,6 +84,19 @@ void AHeatOption::perform()
 }
 
 
+FastAdvectionOption::FastAdvectionOption(GameModel * m):
+	QuickOption("F", "Fast advection", m, Toggle)
+{
+	
+}
+bool FastAdvectionOption::GetToggle()
+{
+	return m->GetFastAdvection();
+}
+void FastAdvectionOption::perform()
+{
+	m->SetFastAdvection(!m->GetFastAdvection());
+}
 
 ConsoleShowOption::ConsoleShowOption(GameModel * m, GameController * c_):
 QuickOption("C", "Show Console \bg(~)", m, Toggle)
