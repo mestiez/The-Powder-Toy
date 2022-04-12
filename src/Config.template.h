@@ -30,6 +30,8 @@
 #mesondefine SERVER
 #mesondefine STATICSERVER
 #mesondefine UPDATESERVER
+#mesondefine IDENT_PLATFORM
+#mesondefine IDENT
 
 #ifdef WIN
 # define PATH_SEP "\\"
@@ -41,11 +43,11 @@
 
 //VersionInfoStart
 #define SAVE_VERSION 96
-#define MINOR_VERSION 1
-#define BUILD_NUM 349
+#define MINOR_VERSION 2
+#define BUILD_NUM 350
 #mesondefine SNAPSHOT_ID
 #mesondefine MOD_ID
-#define FUTURE_SAVE_VERSION 96
+#define FUTURE_SAVE_VERSION 97
 #define FUTURE_MINOR_VERSION 0
 
 #if !(defined(SNAPSHOT) || defined(BETA) || defined(DEBUG) || MOD_ID > 0)
@@ -64,24 +66,6 @@
 #define IDENT_RELTYPE "B"
 #else
 #define IDENT_RELTYPE "R"
-#endif
-
-#if defined(WIN)
-#if defined(_64BIT)
-#define IDENT_PLATFORM "WIN64"
-#else
-#define IDENT_PLATFORM "WIN32"
-#endif
-#elif defined(LIN)
-#if defined(_64BIT)
-#define IDENT_PLATFORM "LIN64"
-#else
-#define IDENT_PLATFORM "LIN32"
-#endif
-#elif defined(MACOSX)
-#define IDENT_PLATFORM "MACOSX"
-#else
-#define IDENT_PLATFORM "UNKNOWN"
 #endif
 
 #if defined(X86_SSE3)

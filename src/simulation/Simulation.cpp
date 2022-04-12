@@ -29,6 +29,7 @@
 #include "common/tpt-compat.h"
 #include "common/tpt-minmax.h"
 #include "common/tpt-rand.h"
+#include "common/tpt-thread-local.h"
 #include "gui/game/Brush.h"
 
 #ifdef LUACONSOLE
@@ -42,15 +43,16 @@ extern int Element_LOLZ_lolz[XRES / 9][YRES / 9];
 extern int Element_LOVE_RuleTable[9][9];
 extern int Element_LOVE_love[XRES / 9][YRES / 9];
 
-int Simulation::Load(GameSave *save, bool includePressure)
+int Simulation::Load(const GameSave * save, bool includePressure)
 {
 	return Load(save, includePressure, 0, 0);
 }
 
-int Simulation::Load(GameSave *save, bool includePressure, int fullX, int fullY)
+int Simulation::Load(const GameSave * originalSave, bool includePressure, int fullX, int fullY)
 {
-	if (!save)
+	if (!originalSave)
 		return 1;
+	auto save = std::unique_ptr<GameSave>(new GameSave(*originalSave));
 	try
 	{
 		save->Expand();
@@ -77,9 +79,8 @@ int Simulation::Load(GameSave *save, bool includePressure, int fullX, int fullY)
 	}
 	if (save->palette.size())
 	{
-		for (std::vector<GameSave::PaletteItem>::iterator iter = save->palette.begin(), end = save->palette.end(); iter != end; ++iter)
+		for(auto &pi : save->palette)
 		{
-			GameSave::PaletteItem pi = *iter;
 			if (pi.second > 0 && pi.second < PT_NUM)
 			{
 				int myId = 0;
@@ -304,19 +305,10 @@ int Simulation::Load(GameSave *save, bool includePressure, int fullX, int fullY)
 		case PT_SOAP:
 			soapList.insert(std::pair<unsigned int, unsigned int>(n, i));
 			break;
-
-		// List of elements that load pavg with a multiplicative bias of 2**6
-		// (or not at all if pressure is not loaded).
-		// If you change this list, change it in GameSave::serialiseOPS and GameSave::readOPS too!
-		case PT_QRTZ:
-		case PT_GLAS:
-		case PT_TUNG:
-			if (!includePressure)
-			{
-				parts[i].pavg[0] = 0;
-				parts[i].pavg[1] = 0;
-			}
-			break;
+		}
+		if (GameSave::PressureInTmp3(parts[i].type) && !includePressure)
+		{
+			parts[i].tmp3 = 0;
 		}
 	}
 	parts_lastActiveIndex = NPART - 1;
@@ -667,7 +659,7 @@ bool Simulation::FloodFillPmapCheck(int x, int y, int type)
 CoordStack &Simulation::getCoordStackSingleton()
 {
 	// Future-proofing in case Simulation is later multithreaded
-	thread_local CoordStack cs;
+	static THREAD_LOCAL(CoordStack, cs);
 	return cs;
 }
 
@@ -2506,6 +2498,8 @@ void Simulation::init_can_move()
 	can_move[PT_THDR][PT_THDR] = 2;
 	can_move[PT_EMBR][PT_EMBR] = 2;
 	can_move[PT_TRON][PT_SWCH] = 3;
+	can_move[PT_SOAP][PT_OIL] = 0;
+	can_move[PT_OIL][PT_SOAP] = 1;
 }
 
 /*
@@ -2834,6 +2828,14 @@ int Simulation::try_move(int i, int x, int y, int nx, int ny)
 			return 0;
 		}
 		break;
+	// SOAP slowly floats up inside OIL
+	case PT_SOAP:
+		if (parts[i].type == PT_OIL)
+		{
+			if (RNG::Ref().chance(19, 20) || std::abs(parts[i].x - nx) > 3 || std::abs(parts[i].y - ny) > 3)
+				return 0;
+		}
+		break;
 	}
 
 	switch (parts[i].type)
@@ -2888,7 +2890,13 @@ int Simulation::try_move(int i, int x, int y, int nx, int ny)
 			pmap[ny][nx] = 0;
 		parts[ri].x += float(x - nx);
 		parts[ri].y += float(y - ny);
-		pmap[(int)(parts[ri].y + 0.5f)][(int)(parts[ri].x + 0.5f)] = PMAP(ri, parts[ri].type);
+
+		int rx = int(parts[ri].x + 0.5f);
+		int ry = int(parts[ri].y + 0.5f);
+		// This check will never fail unless the pmap array has already been corrupted via another bug
+		// In that case, r's position is inaccurate (not actually at nx/ny) and rx/ry may be out of bounds
+		if (InBounds(rx, ry))
+			pmap[ry][rx] = PMAP(ri, parts[ri].type);
 	}
 	return 1;
 }
@@ -3401,7 +3409,8 @@ void Simulation::create_gain_photon(int pp) //photons from PHOT going through GL
 	parts[i].vy = parts[pp].vy;
 	parts[i].temp = parts[ID(pmap[ny][nx])].temp;
 	parts[i].tmp = 0;
-	parts[i].pavg[0] = parts[i].pavg[1] = 0.0f;
+	parts[i].tmp3 = 0;
+	parts[i].tmp4 = 0;
 	photons[ny][nx] = PMAP(i, PT_PHOT);
 
 	temp_bin = (int)((parts[i].temp - 273.0f) * 0.25f);
@@ -3442,7 +3451,8 @@ void Simulation::create_cherenkov_photon(int pp) //photons from NEUT going throu
 	parts[i].y = parts[pp].y;
 	parts[i].temp = parts[ID(pmap[ny][nx])].temp;
 	parts[i].tmp = 0;
-	parts[i].pavg[0] = parts[i].pavg[1] = 0.0f;
+	parts[i].tmp3 = 0;
+	parts[i].tmp4 = 0;
 	photons[ny][nx] = PMAP(i, PT_PHOT);
 
 	if (lr)
@@ -4138,40 +4148,13 @@ void Simulation::UpdateParticles(int start, int end)
 			}
 
 			//call the particle update function, if there is one
-#if !defined(RENDERER) && defined(LUACONSOLE)
-			if (lua_el_mode[parts[i].type] == 3)
-			{
-				if (luacon_elementReplacement(this, i, x, y, surround_space, nt, parts, pmap) || t != parts[i].type)
-					continue;
-				// Need to update variables, in case they've been changed by Lua
-				x = (int)(parts[i].x + 0.5f);
-				y = (int)(parts[i].y + 0.5f);
-			}
-
-			if (elements[t].Update && lua_el_mode[t] != 2)
-#else
 			if (elements[t].Update)
-#endif
 			{
 				if ((*(elements[t].Update))(this, i, x, y, surround_space, nt, parts, pmap))
 					continue;
-				else if (t == PT_WARP)
-				{
-					// Warp does some movement in its update func, update variables to avoid incorrect data in pmap
-					x = (int)(parts[i].x + 0.5f);
-					y = (int)(parts[i].y + 0.5f);
-				}
+				x = (int)(parts[i].x+0.5f);
+				y = (int)(parts[i].y+0.5f);
 			}
-#if !defined(RENDERER) && defined(LUACONSOLE)
-			if (lua_el_mode[parts[i].type] && lua_el_mode[parts[i].type] != 3)
-			{
-				if (luacon_elementReplacement(this, i, x, y, surround_space, nt, parts, pmap) || t != parts[i].type)
-					continue;
-				// Need to update variables, in case they've been changed by Lua
-				x = (int)(parts[i].x + 0.5f);
-				y = (int)(parts[i].y + 0.5f);
-			}
-#endif
 
 			if (legacy_enable) //if heat sim is off
 				Element::legacyUpdate(this, i, x, y, surround_space, nt, parts, pmap);
@@ -4423,8 +4406,8 @@ void Simulation::UpdateParticles(int start, int end)
 						parts[ID(r)].ctype = parts[i].type;
 						parts[ID(r)].temp = parts[i].temp;
 						parts[ID(r)].tmp2 = parts[i].life;
-						parts[ID(r)].pavg[0] = float(parts[i].tmp);
-						parts[ID(r)].pavg[1] = float(parts[i].ctype);
+						parts[ID(r)].tmp3 = parts[i].tmp;
+						parts[ID(r)].tmp4 = parts[i].ctype;
 						kill_part(i);
 						continue;
 					}
@@ -4505,7 +4488,7 @@ void Simulation::UpdateParticles(int start, int end)
 				// Checking stagnant is cool, but then it doesn't update when you change it later.
 				if (water_equal_test && elements[t].Falldown == 2 && RNG::Ref().chance(1, 200))
 				{
-					if (!flood_water(x, y, i))
+					if (flood_water(x, y, i))
 						goto movedone;
 				}
 				// liquids and powders
@@ -5439,7 +5422,7 @@ void Simulation::SetCustomGOL(std::vector<CustomGOLData> newCustomGol)
 	customGol = newCustomGol;
 }
 
-String Simulation::ElementResolve(int type, int ctype)
+String Simulation::ElementResolve(int type, int ctype) const
 {
 	if (type == PT_LIFE)
 	{
@@ -5459,25 +5442,25 @@ String Simulation::ElementResolve(int type, int ctype)
 	return "Empty";
 }
 
-String Simulation::BasicParticleInfo(Particle const &sample_part)
+String Simulation::BasicParticleInfo(Particle const &sample_part) const
 {
 	StringBuilder sampleInfo;
 	int type = sample_part.type;
 	int ctype = sample_part.ctype;
-	int pavg1int = (int)sample_part.pavg[1];
+	int storedCtype = sample_part.tmp4;
 	if (type == PT_LAVA && IsElement(ctype))
 	{
 		sampleInfo << "Molten " << ElementResolve(ctype, -1);
 	}
 	else if ((type == PT_PIPE || type == PT_PPIP) && IsElement(ctype))
 	{
-		if (ctype == PT_LAVA && IsElement(pavg1int))
+		if (ctype == PT_LAVA && IsElement(storedCtype))
 		{
-			sampleInfo << ElementResolve(type, -1) << " with molten " << ElementResolve(pavg1int, -1);
+			sampleInfo << ElementResolve(type, -1) << " with molten " << ElementResolve(storedCtype, -1);
 		}
 		else
 		{
-			sampleInfo << ElementResolve(type, -1) << " with " << ElementResolve(ctype, pavg1int);
+			sampleInfo << ElementResolve(type, -1) << " with " << ElementResolve(ctype, storedCtype);
 		}
 	}
 	else

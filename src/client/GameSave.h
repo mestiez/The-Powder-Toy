@@ -114,7 +114,7 @@ public:
 	int pmapbits;
 
 	GameSave();
-	GameSave(GameSave & save);
+	GameSave(const GameSave & save);
 	GameSave(int width, int height);
 	GameSave(char * data, int dataSize);
 	GameSave(std::vector<char> data);
@@ -134,6 +134,7 @@ public:
 	static bool TypeInCtype(int type, int ctype);
 	static bool TypeInTmp(int type);
 	static bool TypeInTmp2(int type, int tmp2);
+	static bool PressureInTmp3(int type);
 
 	GameSave& operator << (Particle &v);
 	GameSave& operator << (sign &v);

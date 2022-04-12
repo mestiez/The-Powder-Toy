@@ -1,4 +1,5 @@
 #include "GOLString.h"
+#include "client/Client.h"
 
 int ParseGOLString(const String &value)
 {
@@ -93,3 +94,32 @@ String SerialiseGOLRule(int rule)
 	}
 	return golName.Build();
 }
+
+#ifndef RENDERER
+bool AddCustomGol(String ruleString, String nameString, unsigned int highColor, unsigned int lowColor)
+{
+	auto customGOLTypes = Client::Ref().GetPrefByteStringArray("CustomGOL.Types");
+	Json::Value newCustomGOLTypes(Json::arrayValue);
+	bool nameTaken = false;
+	for (auto gol : customGOLTypes)
+	{
+		auto parts = gol.FromUtf8().PartitionBy(' ');
+		if (parts.size())
+		{
+			if (parts[0] == nameString)
+			{
+				nameTaken = true;
+			}
+		}
+		newCustomGOLTypes.append(gol);
+	}
+	if (nameTaken)
+		return false;
+
+	StringBuilder sb;
+	sb << nameString << " " << ruleString << " " << highColor << " " << lowColor;
+	newCustomGOLTypes.append(sb.Build().ToUtf8());
+	Client::Ref().SetPref("CustomGOL.Types", newCustomGOLTypes);
+	return true;
+}
+#endif

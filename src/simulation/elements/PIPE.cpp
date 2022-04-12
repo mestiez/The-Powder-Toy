@@ -83,15 +83,38 @@ constexpr int PPIP_TMPFLAG_TRIGGERS        = 0x1C000000;
 
 signed char pos_1_rx[] = { -1,-1,-1, 0, 0, 1, 1, 1 };
 signed char pos_1_ry[] = { -1, 0, 1,-1, 1,-1, 0, 1 };
-int pos_1_patch90[] = { 2, 4, 7, 1, 6, 0, 3, 5 };
 
-void Element_PIPE_patch90(Particle &part)
+static void transformPatch(Particle &part, const int (&patch)[8])
 {
-	auto oldDirForward = (part.tmp & 0x00001C00) >> 10;
-	auto newDirForward = pos_1_patch90[oldDirForward];
-	auto oldDirReverse = (part.tmp & 0x0001C000) >> 14;
-	auto newDirReverse = pos_1_patch90[oldDirReverse];
-	part.tmp = (part.tmp & 0xFFFE23FF) | (newDirForward << 10) | (newDirReverse << 14);
+	if (part.tmp & 0x00000200) part.tmp = (part.tmp & 0xFFFFE3FF) | (patch[(part.tmp & 0x00001C00) >> 10] << 10);
+	if (part.tmp & 0x00002000) part.tmp = (part.tmp & 0xFFFE3FFF) | (patch[(part.tmp & 0x0001C000) >> 14] << 14);
+}
+
+void Element_PIPE_patchR(Particle &part)
+{
+	// 035 -> 210
+	// 1 6 -> 4 3
+	// 247 -> 765
+	const int patchR[] = { 2, 4, 7, 1, 6, 0, 3, 5 };
+	transformPatch(part, patchR);
+}
+
+void Element_PIPE_patchH(Particle &part)
+{
+	// 035 -> 530
+	// 1 6 -> 6 1
+	// 247 -> 742
+	const int patchH[] = { 5, 6, 7, 3, 4, 0, 1, 2 };
+	transformPatch(part, patchH);
+}
+
+void Element_PIPE_patchV(Particle &part)
+{
+	// 035 -> 247
+	// 1 6 -> 1 6
+	// 247 -> 035
+	const int patchV[] = { 2, 1, 0, 4, 3, 7, 6, 5 };
+	transformPatch(part, patchV);
 }
 
 static unsigned int prevColor(unsigned int flags)
@@ -355,10 +378,8 @@ int Element_PIPE_graphics(GRAPHICS_FUNC_ARGS)
 			tpart.type = t;
 			tpart.temp = cpart->temp;
 			tpart.life = cpart->tmp2;
-			tpart.tmp = int(cpart->pavg[0]);
-			tpart.ctype = int(cpart->pavg[1]);
-			if (t == PT_PHOT && tpart.ctype == 0x40000000)
-				tpart.ctype = 0x3FFFFFFF;
+			tpart.tmp = cpart->tmp3;
+			tpart.ctype = cpart->tmp4;
 
 			*colr = PIXR(ren->sim->elements[t].Colour);
 			*colg = PIXG(ren->sim->elements[t].Colour);
@@ -418,16 +439,14 @@ void Element_PIPE_transfer_pipe_to_part(Simulation * sim, Particle *pipe, Partic
 	}
 	part->temp = pipe->temp;
 	part->life = pipe->tmp2;
-	part->tmp = int(pipe->pavg[0]);
-	part->ctype = int(pipe->pavg[1]);
+	part->tmp = pipe->tmp3;
+	part->ctype = pipe->tmp4;
 
 	if (!(sim->elements[part->type].Properties & TYPE_ENERGY))
 	{
 		part->vx = 0.0f;
 		part->vy = 0.0f;
 	}
-	else if (part->type == PT_PHOT && part->ctype == 0x40000000)
-		part->ctype = 0x3FFFFFFF;
 	part->tmp2 = 0;
 	part->flags = 0;
 	part->dcolour = 0;
@@ -438,8 +457,8 @@ static void transfer_part_to_pipe(Particle *part, Particle *pipe)
 	pipe->ctype = part->type;
 	pipe->temp = part->temp;
 	pipe->tmp2 = part->life;
-	pipe->pavg[0] = float(part->tmp);
-	pipe->pavg[1] = float(part->ctype);
+	pipe->tmp3 = part->tmp;
+	pipe->tmp4 = part->ctype;
 }
 
 static void transfer_pipe_to_pipe(Particle *src, Particle *dest, bool STOR)
@@ -457,8 +476,8 @@ static void transfer_pipe_to_pipe(Particle *src, Particle *dest, bool STOR)
 	}
 	dest->temp = src->temp;
 	dest->tmp2 = src->tmp2;
-	dest->pavg[0] = src->pavg[0];
-	dest->pavg[1] = src->pavg[1];
+	dest->tmp3 = src->tmp3;
+	dest->tmp4 = src->tmp4;
 }
 
 static void pushParticle(Simulation * sim, int i, int count, int original)

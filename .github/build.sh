@@ -33,8 +33,8 @@ if [ -z "${MOD_ID-}" ]; then
 fi
 
 if [ -z "${build_sh_init-}" ]; then
-	if [ $PLATFORM_SHORT == "win" ]; then
-		for i in C:/Program\ Files\ \(x86\)/Microsoft\ Visual\ Studio/**/**/VC/Auxiliary/Build/vcvarsall.bat; do
+	if [ $TOOLSET_SHORT == "msvc" ]; then
+		for i in C:/Program\ Files*/Microsoft\ Visual\ Studio/**/**/VC/Auxiliary/Build/vcvarsall.bat; do
 			vcvarsall_path=$i
 		done
 		if [ $MACHINE_SHORT == "x86_64" ]; then
@@ -69,11 +69,11 @@ if [ $PLATFORM_SHORT == "lin" ]; then
 	# pthread_create, thanks to weak symbols in libstdc++.so (or something). See
 	# https://gcc.gnu.org/legacy-ml/gcc-help/2017-03/msg00081.html
 	other_flags+=$'\t-Db_asneeded=false\t-Dcpp_link_args=-Wl,--no-as-needed'
-	if [ $STATIC_DYNAMIC == "static" ]; then
+	if [ $STATIC_DYNAMIC == "static" ] && [ $TOOLSET_SHORT == "gcc" ]; then
 		other_flags+=$'\t-Dbuild_render=true\t-Dbuild_font=true'
 	fi
 fi
-if [ $PLATFORM_SHORT == "win" ]; then
+if [ $TOOLSET_SHORT == "mingw" ]; then
 	bin_suffix=$bin_suffix.exe
 fi
 stable_or_beta="n"
@@ -103,7 +103,40 @@ fi
 if [ "$RELTYPE" != "dev" ]; then
 	other_flags+=$'\t-Dignore_updates=false'
 fi
-meson -Dbuildtype=release -Db_pie=false -Db_staticpic=false -Db_lto=true $static_flag -Dinstall_check=true $other_flags build
+lto_flag=-Db_lto=true
+if [ $TOOLSET_SHORT == "mingw" ]; then
+	# This simply doesn't work with MinGW. I have no idea why and I also don't care.
+	lto_flag=
+	if [ $PLATFORM_SHORT == "lin" ]; then
+		other_flags+=$'\t--cross-file=.github/mingw-ghactions.ini'
+	fi
+fi
+if [ $PLATFORM_SHORT == "mac" ]; then
+	macosx_version_min=10.9
+	if [ $MACHINE_SHORT == "arm64" ]; then
+		macosx_version_min=10.15
+		other_flags+=$'\t--cross-file=.github/macaa64-ghactions.ini'
+	fi
+	export CFLAGS=-mmacosx-version-min=$macosx_version_min
+	export CXXFLAGS=-mmacosx-version-min=$macosx_version_min
+	export LDFLAGS=-mmacosx-version-min=$macosx_version_min
+fi
+if [ "$RELTYPE" == "tptlibsdev" ]; then
+	tptlibsbranch=`echo $RELNAME | cut -d '-' -f 2-` # $RELNAME is tptlibsdev-BRANCH
+	git clone https://github.com/$GITHUB_REPOSITORY_OWNER/tpt-libs --branch $tptlibsbranch
+	cd tpt-libs
+	if [ ! -d patches/$MACHINE_SHORT-$PLATFORM_SHORT-$TOOLSET_SHORT-$STATIC_DYNAMIC ]; then
+		cd ..
+		echo "no prebuilt libraries for this configuration" > powder$bin_suffix
+		exit 0
+	fi
+	VTAG=v00000000000000 ./build.sh
+	cd ../subprojects
+	7z x ../tpt-libs/temp/libraries.zip
+	other_flags+=$'\t-Dtpt_libs_vtag=v00000000000000'
+	cd ..
+fi
+meson -Dbuildtype=release -Db_pie=false -Dworkaround_gcc_no_pie=true -Db_staticpic=false $lto_flag $static_flag -Dinstall_check=true $other_flags build
 cd build
 ninja
 if [ $PLATFORM_SHORT == "lin" ] || [ $PLATFORM_SHORT == "mac" ]; then
