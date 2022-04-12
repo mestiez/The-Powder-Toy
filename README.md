@@ -1,5 +1,7 @@
 **This fork adds a "Faster advection" setting that increases air propagation speed and decreases its influence over particles.**
 
+built exe if you dont know what the hell youre looking at here: https://www.studiominus.nl/powder.exe
+
 The Powder Toy - July 2021
 ==========================
 
